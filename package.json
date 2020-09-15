@@ -1,0 +1,28 @@
+{
+  "name": "gatsby-plugin-vtex-nginx",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^26.0.13",
+    "@types/webpack-assets-manifest": "^3.0.1",
+    "gatsby": "^2.0.0",
+    "jest": "^26.4.2",
+    "typescript": "^4.0.2"
+  },
+  "peerDependencies": {
+    "gatsby": "^2.0.0"
+  },
+  "dependencies": {
+    "kebab-hash": "^0.1.2",
+    "webpack-assets-manifest": "^3.1.1"
+  }
+}
