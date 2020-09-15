@@ -21,10 +21,22 @@ function generateNginxConfiguration(rewrites, redirects, headersMap) {
                 {
                     cmd: ['server'], children: [
                         { cmd: ['listen', '0.0.0.0:8080', 'default_server'] },
-                        { cmd: ['resolver', '1.1.1.1'] },
+                        { cmd: ['resolver', '8.8.8.8'] },
                         ...Object.entries(headersMap).map(([path, headers]) => generatePathLocation(path, headers)),
                         ...generateRedirects(redirects),
+                        {
+                            cmd: ['location', '/'], children: [
+                                { cmd: ['try_files', '/dev/null', '@s3'] },
+                            ]
+                        },
                         generateRewrites(rewrites),
+                        { cmd: ['error_page', '403', '=', '@clientSideFallback'] },
+                        {
+                            cmd: ['location', '@s3'], children: [
+                                storagePassTemplate('$uri'),
+                                { cmd: ['proxy_intercept_errors', 'on'] },
+                            ]
+                        },
                     ],
                 },
             ],
@@ -40,7 +52,7 @@ exports.stringify = stringify;
 function convertFromPath(path) {
     return '^' + path
         .replace(/\*/g, '.*') // order matters!
-        .replace(/:slug/g, '.*?');
+        .replace(/:slug/g, '[^/]+');
 }
 exports.convertFromPath = convertFromPath;
 function validateRedirect({ fromPath, toPath }) {
@@ -59,14 +71,15 @@ function validateRedirect({ fromPath, toPath }) {
 exports.validateRedirect = validateRedirect;
 function generateRewrites(rewrites) {
     return {
-        cmd: ['location', '/'],
+        cmd: ['location', '@clientSideFallback'],
         children: rewrites.map(({ fromPath, toPath }) => ({
             cmd: [
                 'rewrite',
                 convertFromPath(fromPath),
-                toPath
+                toPath,
+                'last'
             ]
-        })).concat([{ cmd: ['return', '200'] }])
+        })).concat([{ cmd: ['return', '404'] }])
     };
 }
 exports.generateRewrites = generateRewrites;
@@ -79,21 +92,26 @@ function generateRedirects(redirects) {
             cmd: ['location', '~*', convertFromPath(fromPath)],
             children: [
                 { cmd: ['proxy_pass', `${protocol}//${host}$uri$is_args$args`] },
-                { cmd: ['proxy_http_version', '1.1'] },
                 { cmd: ['proxy_ssl_server_name', 'on'] },
-                { cmd: ['proxy_set_header', 'X-Vtex-Graphql-Referer', '$proxy_host'] },
-                { cmd: ['proxy_set_header', 'Referer', `${protocol}//$proxy_host/$referer_path`] },
             ]
         };
     });
 }
 exports.generateRedirects = generateRedirects;
+function storagePassTemplate(path) {
+    return {
+        cmd: [
+            'proxy_pass',
+            `https://s3.amazonaws.com/vtex-sites-storecomponents.store/cypress-sample-test/public${path}`
+        ]
+    };
+}
 function generatePathLocation(path, headers) {
     return {
         cmd: ['location', '=', path],
         children: [
             ...headers.map(({ name, value }) => ({ cmd: ['add_header', name, `"${value}"`] })),
-            { cmd: ['proxy_pass', `https://s3.amazonaws.com/vtex-sites-storecomponents.store/cypress-sample-test/public${fixFilePath(path)}`] }
+            storagePassTemplate(fixFilePath(path))
         ]
     };
 }
