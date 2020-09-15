@@ -102,7 +102,7 @@ function storagePassTemplate(path) {
     return {
         cmd: [
             'proxy_pass',
-            `https://s3.amazonaws.com/vtex-sites-storecomponents.store/cypress-sample-test/public${path}`
+            `https://s3.amazonaws.com/\${BUCKET}/\${BRANCH}/public${path}`
         ]
     };
 }
