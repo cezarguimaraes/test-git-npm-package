@@ -40,7 +40,8 @@ function generateNginxConfiguration(
         {
           cmd: ['server'],
           children: [
-            { cmd: ['listen', '0.0.0.0:8080', 'default_server'] },
+            // $PORT is set by Knative
+            { cmd: ['listen', '0.0.0.0:$PORT', 'default_server'] },
             { cmd: ['resolver', '8.8.8.8'] },
             ...Object.entries(headersMap).map(([path, headers]) =>
               generatePathLocation(path, headers)
