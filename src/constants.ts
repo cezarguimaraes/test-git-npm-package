@@ -2,7 +2,7 @@ export const BUILD_HTML_STAGE = 'build-html'
 
 export const IMMUTABLE_CACHING_HEADER = {
   name: 'Cache-Control',
-  value: 'public, max-age=31536000, immutable'
+  value: 'public, max-age=31536000, immutable',
 }
 
 export const COMMON_BUNDLES = ['commons', 'app']
