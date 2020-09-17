@@ -4,7 +4,7 @@ exports.VTEX_NGINX_CONF_FILENAME = exports.CACHING_HEADERS = exports.PAGE_DATA_D
 exports.BUILD_HTML_STAGE = 'build-html';
 exports.IMMUTABLE_CACHING_HEADER = {
     name: 'Cache-Control',
-    value: 'public, max-age=31536000, immutable'
+    value: 'public, max-age=31536000, immutable',
 };
 exports.COMMON_BUNDLES = ['commons', 'app'];
 exports.PAGE_DATA_DIR = 'page-data';

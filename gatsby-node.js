@@ -20,39 +20,38 @@ const Node = {
             plugins: [
                 new webpack_assets_manifest_1.default({
                     assets: assetsManifest,
-                    merge: true
-                })
-            ]
+                    merge: true,
+                }),
+            ],
         });
     },
     async onPostBuild({ store, pathPrefix, reporter }, { transformHeaders }) {
         const { program, pages: pagesMap, redirects } = store.getState();
         const pages = Array.from(pagesMap.values());
         const rewrites = pages
-            .filter(page => page.matchPath && page.matchPath !== page.path)
-            .map(page => ({
+            .filter((page) => page.matchPath && page.matchPath !== page.path)
+            .map((page) => ({
             fromPath: page.matchPath,
-            toPath: page.path
+            toPath: page.path,
         }));
-        const assetsByChunkName = require(path_1.join(program.directory, 'public', 'webpack.stats.json')).assetsByChunkName;
+        const { assetsByChunkName } = require(path_1.join(program.directory, 'public', 'webpack.stats.json'));
         const manifest = {
-            ...mapObjectValues(assetsManifest, value => [value]),
-            ...assetsByChunkName
+            ...mapObjectValues(assetsManifest, (value) => [value]),
+            ...assetsByChunkName,
         };
         let headers = {
             ...headers_1.preloadHeadersByPath(pages, manifest, pathPrefix),
-            ...headers_1.cacheHeadersByPath(pages, manifest)
+            ...headers_1.cacheHeadersByPath(pages, manifest),
         };
         if (typeof transformHeaders === 'function') {
             headers = headers_1.applyUserHeadersTransform(headers, transformHeaders);
         }
-        fs_1.writeFileSync(path_1.join(program.directory, constants_1.VTEX_NGINX_CONF_FILENAME), nginx_generator_1.generateNginxConfiguration(rewrites, redirects, headers));
+        fs_1.writeFileSync(path_1.join(program.directory, 'public', constants_1.VTEX_NGINX_CONF_FILENAME), nginx_generator_1.generateNginxConfiguration(rewrites, redirects, headers));
         reporter.success('write out nginx configuration');
-    }
+    },
 };
 function mapObjectValues(obj, transform) {
-    return Object.fromEntries(Object.entries(obj)
-        .map(([k, v]) => [k, transform(v)]));
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, transform(v)]));
 }
 exports.onCreateWebpackConfig = Node.onCreateWebpackConfig;
 exports.onPostBuild = Node.onPostBuild;

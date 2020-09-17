@@ -10,32 +10,36 @@ function generateNginxConfiguration(rewrites, redirects, headersMap) {
         { cmd: ['pid', '/var/log/nginx_run.pid'] },
         { cmd: ['events'], children: [{ cmd: ['worker_connections', '1024'] }] },
         {
-            cmd: ['http'], children: [
+            cmd: ['http'],
+            children: [
                 { cmd: ['access_log', '/var/log/nginx_access.log'] },
                 {
-                    cmd: ['map', '$http_referer', '$referer_path'], children: [
+                    cmd: ['map', '$http_referer', '$referer_path'],
+                    children: [
                         { cmd: ['default', '""'] },
-                        { cmd: ['~^.*?://.*?/(?<path>.*)$', '$path'] }
+                        { cmd: ['~^.*?://.*?/(?<path>.*)$', '$path'] },
                     ],
                 },
                 {
-                    cmd: ['server'], children: [
-                        { cmd: ['listen', '0.0.0.0:8080', 'default_server'] },
+                    cmd: ['server'],
+                    children: [
+                        // $PORT is set by Knative
+                        { cmd: ['listen', '0.0.0.0:$PORT', 'default_server'] },
                         { cmd: ['resolver', '8.8.8.8'] },
                         ...Object.entries(headersMap).map(([path, headers]) => generatePathLocation(path, headers)),
                         ...generateRedirects(redirects),
                         {
-                            cmd: ['location', '/'], children: [
-                                { cmd: ['try_files', '/dev/null', '@s3'] },
-                            ]
+                            cmd: ['location', '/'],
+                            children: [{ cmd: ['try_files', '/dev/null', '@s3'] }],
                         },
                         generateRewrites(rewrites),
                         { cmd: ['error_page', '403', '=', '@clientSideFallback'] },
                         {
-                            cmd: ['location', '@s3'], children: [
+                            cmd: ['location', '@s3'],
+                            children: [
                                 storagePassTemplate('$uri'),
                                 { cmd: ['proxy_intercept_errors', 'on'] },
-                            ]
+                            ],
                         },
                     ],
                 },
@@ -45,14 +49,15 @@ function generateNginxConfiguration(rewrites, redirects, headersMap) {
 }
 exports.generateNginxConfiguration = generateNginxConfiguration;
 function stringify(directives) {
-    return directives.map(({ cmd, children }) => `${cmd.join(' ')}${children ? ` {\n${ident(stringify(children))}\n}` : ';'}`)
+    return directives
+        .map(({ cmd, children }) => `${cmd.join(' ')}${children ? ` {\n${ident(stringify(children))}\n}` : ';'}`)
         .join('\n');
 }
 exports.stringify = stringify;
 function convertFromPath(path) {
-    return '^' + path
+    return `^${path
         .replace(/\*/g, '.*') // order matters!
-        .replace(/:slug/g, '[^/]+');
+        .replace(/:slug/g, '[^/]+')}`;
 }
 exports.convertFromPath = convertFromPath;
 function validateRedirect({ fromPath, toPath }) {
@@ -72,19 +77,16 @@ exports.validateRedirect = validateRedirect;
 function generateRewrites(rewrites) {
     return {
         cmd: ['location', '@clientSideFallback'],
-        children: rewrites.map(({ fromPath, toPath }) => ({
-            cmd: [
-                'rewrite',
-                convertFromPath(fromPath),
-                toPath,
-                'last'
-            ]
-        })).concat([{ cmd: ['return', '404'] }])
+        children: rewrites
+            .map(({ fromPath, toPath }) => ({
+            cmd: ['rewrite', convertFromPath(fromPath), toPath, 'last'],
+        }))
+            .concat([{ cmd: ['return', '404'] }]),
     };
 }
 exports.generateRewrites = generateRewrites;
 function generateRedirects(redirects) {
-    return redirects.map(redirect => {
+    return redirects.map((redirect) => {
         validateRedirect(redirect);
         const { fromPath, toPath } = redirect;
         const { protocol, host } = new URL(toPath);
@@ -93,7 +95,7 @@ function generateRedirects(redirects) {
             children: [
                 { cmd: ['proxy_pass', `${protocol}//${host}$uri$is_args$args`] },
                 { cmd: ['proxy_ssl_server_name', 'on'] },
-            ]
+            ],
         };
     });
 }
@@ -102,17 +104,19 @@ function storagePassTemplate(path) {
     return {
         cmd: [
             'proxy_pass',
-            `https://s3.amazonaws.com/\${BUCKET}/\${BRANCH}/public${path}`
-        ]
+            `https://s3.amazonaws.com/\${BUCKET}/\${BRANCH}/public${path}`,
+        ],
     };
 }
 function generatePathLocation(path, headers) {
     return {
         cmd: ['location', '=', path],
         children: [
-            ...headers.map(({ name, value }) => ({ cmd: ['add_header', name, `"${value}"`] })),
-            storagePassTemplate(fixFilePath(path))
-        ]
+            ...headers.map(({ name, value }) => ({
+                cmd: ['add_header', name, `"${value}"`],
+            })),
+            storagePassTemplate(fixFilePath(path)),
+        ],
     };
 }
 exports.generatePathLocation = generatePathLocation;
@@ -123,5 +127,8 @@ function fixFilePath(path) {
     return path_1.posix.join(path, 'index.html');
 }
 function ident(text, space = '  ') {
-    return text.split('\n').map(line => `${space}${line}`).join('\n');
+    return text
+        .split('\n')
+        .map((line) => `${space}${line}`)
+        .join('\n');
 }
